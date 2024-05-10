@@ -695,9 +695,19 @@ dependencies = [
 ]
 
 [[package]]
+name = "fedimint-build"
+version = "0.3.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "b159f3fc474342daf132b99ff55ad6b97827fbf9d4c6622060dfa7293c72d8cf"
+dependencies = [
+ "serde_json",
+]
+
+[[package]]
 name = "fedimint-plugin"
 version = "0.1.0"
 dependencies = [
+ "fedimint-build",
  "tauri",
  "tauri-build",
 ]
