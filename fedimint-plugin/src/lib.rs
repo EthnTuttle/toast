@@ -1,12 +1,18 @@
-use tauri::{plugin::{Builder, TauriPlugin}, Runtime};
+use tauri::{async_runtime::Mutex, plugin::{Builder, TauriPlugin}, Manager, Runtime};
+use fedimint_client::module::init::ClientModuleInitRegistry;
+
+struct Config {
+  module_inits: Mutex<ClientModuleInitRegistry>,
+}
 
 pub fn init<R: Runtime>() -> TauriPlugin<R> {
   Builder::new("fedimint")
     .setup(|app, plugin| {
         // setup client data_dir
-        // set out guardian peerId
+        // set our guardian peerId
         // password for authentication (should not be here?)
-        // 
+        // check version hashes
+        app.manage(Config { module_inits: Default::default() });
         Ok(())
     })
     .build()
