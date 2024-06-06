@@ -3,11 +3,11 @@ name = "fedimint-plugin"
 version = "0.1.0"
 edition = "2021"
 
-
 [build-dependencies]
 tauri-build = { version = "2.0.0-beta", features = [] }
 fedimint-build = "=0.3.1"
 
 [dependencies]
+roastr-client = { path = "../../roastr/roastr-client" }
+fedimint-client = { git = "https://github.com/m1sterc001guy/fedimint", rev = "2541b9705aefde724d55683aa46fb6997d312d7e" }
 tauri = { version = "=2.0.0-beta.22", features = [] }
-fedimint-client = "=0.3.1"
