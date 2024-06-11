@@ -1,6 +1,6 @@
 use serde::{ser::Serializer, Serialize};
 
-pub type Result<T> = std::result::Result<T, Error>;
+pub type TauriPluginResult<T> = std::result::Result<T, Error>;
 
 #[derive(Debug, thiserror::Error)]
 pub enum Error {

@@ -1,12 +1,18 @@
-use fedimint_core::{apply, async_trait_maybe_send, db::Database, PeerId};
+use directories::ProjectDirs;
 use fedimint_client::{module::init::ClientModuleInitRegistry, Client, ClientHandle};
+use fedimint_core::{api::InviteCode, apply, async_trait_maybe_send, config::FederationId, db::Database, util::SafeUrl, PeerId};
 use roastr_client::RoastrClientInit;
+use serde::Serialize;
+use serde_json::Value;
 use tauri::{
-  plugin::{Builder, TauriPlugin},
-  Manager, Runtime,
+    plugin::{Builder, TauriPlugin},
+    Manager, Runtime,
 };
+use std::fmt::Debug;
 
-use std::path::PathBuf;
+use core::fmt;
+use std::{path::PathBuf, result};
+use thiserror::Error;
 
 pub use models::*;
 
@@ -19,68 +25,192 @@ mod commands;
 mod error;
 mod models;
 
-pub use error::{Error, Result};
-
 #[cfg(desktop)]
 use desktop::Roastr;
 #[cfg(mobile)]
 use mobile::Roastr;
 
 struct MyState {
-  client: ClientHandle,
-  our_peer_id: Option<PeerId>,
-  password: Option<String>
+    client: ClientHandle,
+    our_peer_id: Option<PeerId>,
+    password: Option<String>,
 }
 
 /// Extensions to [`tauri::App`], [`tauri::AppHandle`] and [`tauri::Window`] to access the roastr APIs.
 pub trait RoastrExt<R: Runtime> {
-  fn roastr(&self) -> &Roastr<R>;
+    fn roastr(&self) -> &Roastr<R>;
 }
 
 impl<R: Runtime, T: Manager<R>> crate::RoastrExt<R> for T {
-  fn roastr(&self) -> &Roastr<R> {
-    self.state::<Roastr<R>>().inner()
-  }
+    fn roastr(&self) -> &Roastr<R> {
+        self.state::<Roastr<R>>().inner()
+    }
 }
 
 /// Initializes the plugin.
 pub fn init<R: Runtime>() -> TauriPlugin<R> {
-  Builder::new("roastr")
-    .invoke_handler(tauri::generate_handler![commands::execute])
-    .setup(|app, api| {
-      #[cfg(mobile)]
-      let roastr = mobile::init(app, api)?;
-      #[cfg(desktop)]
-      let roastr = desktop::init(app, api)?;
-      app.manage(roastr);
-      let mut module_inits = ClientModuleInitRegistry::new();
-      module_inits.attach(RoastrClientInit);
+    Builder::new("roastr")
+        // .invoke_handler(tauri::generate_handler![commands::execute])
+        .setup(|app, api| {
+            #[cfg(mobile)]
+            let roastr = mobile::init(app, api)?;
+            #[cfg(desktop)]
+            let roastr = desktop::init(app, api)?;
+            app.manage(roastr);
+            let mut module_inits = ClientModuleInitRegistry::new();
+            module_inits.attach(RoastrClientInit);
 
-      // setup data-dir
-      // setup db
+            let db = tokio::runtime::Builder::new_multi_thread().enable_all().build().unwrap().block_on(load_rocks_db()).expect("Failed to load rocks db");
 
-      let client_builder = Client::builder(db);
-      // manage state so it is accessible by the commands
-      app.manage(MyState { client: todo!(), our_peer_id: todo!(), password: todo!()  });
-      Ok(())
-    })
-    .build()
+            let client_builder = Client::builder(db);
+            // manage state so it is accessible by the commands
+            app.manage(MyState {
+                client: todo!(),
+                our_peer_id: todo!(),
+                password: todo!(),
+            });
+            Ok(())
+        })
+        .build()
 }
 
-async fn load_rocks_db(&self) -> Result<Database> {
+async fn load_rocks_db() -> CliResult<Database> {
     debug!(target: LOG_CLIENT, "Loading client database");
-    let db_path = self.data_dir_create().await?.join("client.db");
+    let db_path = data_dir_create().await?.join("client.db");
     let lock_path = db_path.with_extension("db.lock");
     Ok(LockedBuilder::new(&lock_path)
         .await
         .map_err_cli_msg("could not lock database")?
         .with_db(
-            fedimint_rocksdb::RocksDb::open(db_path)
-                .map_err_cli_msg("could not open database")?,
+            fedimint_rocksdb::RocksDb::open(db_path).map_err_cli_msg("could not open database")?,
         )
         .into())
 }
 
+fn data_dir() -> CliResult<PathBuf> {
+    let dirs = ProjectDirs::from(
+        "org",         /*qualifier*/
+        "Baz Corp",    /*organization*/
+        "Foo Bar-App", /*application*/
+    )
+    .expect("Could not create data dir")
+    .data_dir()
+    .to_owned();
+    let path_buf = PathBuf::from(dirs);
+    Ok(path_buf)
+}
+
+/// Get and create if doesn't exist the data dir
+async fn data_dir_create() -> CliResult<PathBuf> {
+    let dir = data_dir()?;
+
+    tokio::fs::create_dir_all(&dir).await.map_err_cli()?;
+
+    Ok(dir)
+}
+
+/// Type of output the cli produces
+#[derive(Serialize)]
+#[serde(rename_all = "snake_case")]
+#[serde(untagged)]
+enum CliOutput {
+    VersionHash {
+        hash: String,
+    },
+
+    UntypedApiOutput {
+        value: Value,
+    },
+
+    WaitBlockCount {
+        reached: u64,
+    },
+
+    InviteCode {
+        invite_code: InviteCode,
+    },
+
+    DecodeInviteCode {
+        url: SafeUrl,
+        federation_id: FederationId,
+    },
+
+    JoinFederation {
+        joined: String,
+    },
+
+    DecodeTransaction {
+        transaction: String,
+    },
+
+    EpochCount {
+        count: u64,
+    },
+
+    ConfigDecrypt,
+
+    ConfigEncrypt,
+
+    Raw(serde_json::Value),
+}
+
+
+/// `Result` with `CliError` as `Error`
+type CliResult<E> = Result<E, CliError>;
+
+/// `Result` with `CliError` as `Error` and `CliOutput` as `Ok`
+type CliOutputResult = Result<CliOutput, CliError>;
+
+/// Cli error
+#[derive(Serialize, Error)]
+#[serde(tag = "error", rename_all(serialize = "snake_case"))]
+struct CliError {
+    error: String,
+}
+
+impl Debug for CliError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_struct("CliError")
+            .field("error", &self.error)
+            .finish()
+    }
+}
+
+impl fmt::Display for CliError {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        let json = serde_json::to_value(self).expect("CliError is valid json");
+        let json_as_string =
+            serde_json::to_string_pretty(&json).expect("valid json is serializable");
+        write!(f, "{}", json_as_string)
+    }
+}
+
+/// Extension trait making turning Results/Errors into
+/// [`CliError`]/[`CliOutputResult`] easier
+trait CliResultExt<O, E> {
+    /// Map error into `CliError` wrapping the original error message
+    fn map_err_cli(self) -> Result<O, CliError>;
+    /// Map error into `CliError` using custom error message `msg`
+    fn map_err_cli_msg(self, msg: impl Into<String>) -> Result<O, CliError>;
+}
+
+impl<O, E> CliResultExt<O, E> for result::Result<O, E>
+where
+    E: Into<anyhow::Error>,
+{
+    fn map_err_cli(self) -> Result<O, CliError> {
+        self.map_err(|e| {
+            let e = e.into();
+            CliError {
+                error: e.to_string(),
+            }
+        })
+    }
+
+    fn map_err_cli_msg(self, msg: impl Into<String>) -> Result<O, CliError> {
+        self.map_err(|_| CliError { error: msg.into() })
+    }
+}
 
 // #### db_locked.rs from Fedimint CLI
 use std::path::Path;

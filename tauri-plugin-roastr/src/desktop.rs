@@ -6,7 +6,7 @@ use crate::models::*;
 pub fn init<R: Runtime, C: DeserializeOwned>(
   app: &AppHandle<R>,
   _api: PluginApi<R, C>,
-) -> crate::Result<Roastr<R>> {
+) -> crate::error::TauriPluginResult<Roastr<R>> {
   Ok(Roastr(app.clone()))
 }
 
@@ -14,7 +14,7 @@ pub fn init<R: Runtime, C: DeserializeOwned>(
 pub struct Roastr<R: Runtime>(AppHandle<R>);
 
 impl<R: Runtime> Roastr<R> {
-  pub fn ping(&self, payload: PingRequest) -> crate::Result<PingResponse> {
+  pub fn ping(&self, payload: PingRequest) -> crate::error::TauriPluginResult<PingResponse> {
     Ok(PingResponse {
       value: payload.value,
     })
