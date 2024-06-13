@@ -1,14 +1,18 @@
+use bip39::Mnemonic;
 use directories::ProjectDirs;
-use fedimint_client::{module::init::ClientModuleInitRegistry, Client, ClientHandle};
-use fedimint_core::{api::InviteCode, apply, async_trait_maybe_send, config::FederationId, db::Database, util::SafeUrl, PeerId};
+use fedimint_client::{module::init::ClientModuleInitRegistry, Client, ClientBuilder, ClientHandle, ClientHandleArc};
+use fedimint_core::{
+    api::InviteCode, apply, async_trait_maybe_send, config::FederationId, db::Database,
+    util::SafeUrl, PeerId,
+};
 use roastr_client::RoastrClientInit;
 use serde::Serialize;
 use serde_json::Value;
+use std::fmt::Debug;
 use tauri::{
     plugin::{Builder, TauriPlugin},
     Manager, Runtime,
 };
-use std::fmt::Debug;
 
 use core::fmt;
 use std::{path::PathBuf, result};
@@ -31,7 +35,7 @@ use desktop::Roastr;
 use mobile::Roastr;
 
 struct MyState {
-    client: ClientHandle,
+    client_builder: ClientBuilder,
     our_peer_id: Option<PeerId>,
     password: Option<String>,
 }
@@ -60,14 +64,21 @@ pub fn init<R: Runtime>() -> TauriPlugin<R> {
             let mut module_inits = ClientModuleInitRegistry::new();
             module_inits.attach(RoastrClientInit);
 
-            let db = tokio::runtime::Builder::new_multi_thread().enable_all().build().unwrap().block_on(load_rocks_db()).expect("Failed to load rocks db");
+            let db = tokio::runtime::Builder::new_multi_thread()
+                .enable_all()
+                .build()
+                .unwrap()
+                .block_on(load_rocks_db())
+                .expect("Failed to load rocks db");
 
-            let client_builder = Client::builder(db);
+            let mut client_builder = Client::builder(db);
+            client_builder.with_module_inits(module_inits);
+            
             // manage state so it is accessible by the commands
             app.manage(MyState {
-                client: todo!(),
-                our_peer_id: todo!(),
-                password: todo!(),
+                client_builder,
+                our_peer_id: None,
+                password: None,
             });
             Ok(())
         })
@@ -153,7 +164,6 @@ enum CliOutput {
 
     Raw(serde_json::Value),
 }
-
 
 /// `Result` with `CliError` as `Error`
 type CliResult<E> = Result<E, CliError>;
