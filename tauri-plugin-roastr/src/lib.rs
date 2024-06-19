@@ -1,4 +1,3 @@
-use bip39::Mnemonic;
 use directories::ProjectDirs;
 use fedimint_client::{module::init::ClientModuleInitRegistry, Client, ClientBuilder, ClientHandle, ClientHandleArc};
 use fedimint_core::{
@@ -8,11 +7,11 @@ use fedimint_core::{
 use roastr_client::RoastrClientInit;
 use serde::Serialize;
 use serde_json::Value;
-use std::fmt::Debug;
+use std::{fmt::Debug, sync::Mutex};
 use tauri::{
-    plugin::{Builder, TauriPlugin},
-    Manager, Runtime,
+    generate_handler, plugin::{Builder, TauriPlugin}, Manager, Runtime
 };
+use crate::commands::{create_note, join_federation_as_admin};
 
 use core::fmt;
 use std::{path::PathBuf, result};
@@ -35,9 +34,11 @@ use desktop::Roastr;
 use mobile::Roastr;
 
 struct MyState {
-    client_builder: ClientBuilder,
-    our_peer_id: Option<PeerId>,
-    password: Option<String>,
+    db: Mutex<Database>,
+    // probably need a vec of clients? or a hashmap?
+    client: Mutex<Option<ClientHandle>>,
+    our_peer_id: Mutex<Option<PeerId>>,
+    password: Mutex<Option<String>>,
 }
 
 /// Extensions to [`tauri::App`], [`tauri::AppHandle`] and [`tauri::Window`] to access the roastr APIs.
@@ -61,8 +62,6 @@ pub fn init<R: Runtime>() -> TauriPlugin<R> {
             #[cfg(desktop)]
             let roastr = desktop::init(app, api)?;
             app.manage(roastr);
-            let mut module_inits = ClientModuleInitRegistry::new();
-            module_inits.attach(RoastrClientInit);
 
             let db = tokio::runtime::Builder::new_multi_thread()
                 .enable_all()
@@ -70,18 +69,17 @@ pub fn init<R: Runtime>() -> TauriPlugin<R> {
                 .unwrap()
                 .block_on(load_rocks_db())
                 .expect("Failed to load rocks db");
-
-            let mut client_builder = Client::builder(db);
-            client_builder.with_module_inits(module_inits);
-            
+ 
             // manage state so it is accessible by the commands
             app.manage(MyState {
-                client_builder,
-                our_peer_id: None,
-                password: None,
+                db: db.into(),
+                client: None.into(),
+                our_peer_id: None.into(),
+                password: None.into(),
             });
             Ok(())
         })
+        .invoke_handler(generate_handler![create_note, join_federation_as_admin])
         .build()
 }
 
