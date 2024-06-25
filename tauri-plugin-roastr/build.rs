@@ -1,4 +1,4 @@
-const COMMANDS: &[&str] = &["create_note"];
+const COMMANDS: &[&str] = &["join_federation_as_admin"];
 
 fn main() {
   fedimint_build::set_code_version();

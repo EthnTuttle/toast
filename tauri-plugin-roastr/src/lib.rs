@@ -1,10 +1,9 @@
 use directories::ProjectDirs;
-use fedimint_client::{module::init::ClientModuleInitRegistry, Client, ClientBuilder, ClientHandle, ClientHandleArc};
+use fedimint_client::ClientHandle;
 use fedimint_core::{
     api::InviteCode, apply, async_trait_maybe_send, config::FederationId, db::Database,
     util::SafeUrl, PeerId,
 };
-use roastr_client::RoastrClientInit;
 use serde::Serialize;
 use serde_json::Value;
 use std::{fmt::Debug, sync::Mutex};
@@ -54,7 +53,7 @@ impl<R: Runtime, T: Manager<R>> crate::RoastrExt<R> for T {
 
 /// Initializes the plugin.
 pub fn init<R: Runtime>() -> TauriPlugin<R> {
-    Builder::new("roastr")
+    let plugin = Builder::new("roastr")
         // .invoke_handler(tauri::generate_handler![commands::execute])
         .setup(|app, api| {
             #[cfg(mobile)]
@@ -80,17 +79,20 @@ pub fn init<R: Runtime>() -> TauriPlugin<R> {
             Ok(())
         })
         .invoke_handler(generate_handler![create_note, join_federation_as_admin])
-        .build()
+        .build();
+        info!("Done init'ing roastr plugin");
+        plugin
 }
 
 async fn load_rocks_db() -> CliResult<Database> {
     debug!(target: LOG_CLIENT, "Loading client database");
     let db_path = data_dir_create().await?.join("client.db");
+    debug!("database path: {:?}", db_path);
     let lock_path = db_path.with_extension("db.lock");
     Ok(LockedBuilder::new(&lock_path)
-        .await
-        .map_err_cli_msg("could not lock database")?
-        .with_db(
+    .await
+    .map_err_cli_msg("could not lock database")?
+    .with_db(
             fedimint_rocksdb::RocksDb::open(db_path).map_err_cli_msg("could not open database")?,
         )
         .into())
@@ -100,12 +102,13 @@ fn data_dir() -> CliResult<PathBuf> {
     let dirs = ProjectDirs::from(
         "org",         /*qualifier*/
         "Baz Corp",    /*organization*/
-        "Foo Bar-App", /*application*/
+        "toastr", /*application*/
     )
     .expect("Could not create data dir")
     .data_dir()
     .to_owned();
     let path_buf = PathBuf::from(dirs);
+    debug!("data dir: {:?}", path_buf);
     Ok(path_buf)
 }
 

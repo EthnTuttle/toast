@@ -1,0 +1,13 @@
+# Automatically generated - DO NOT EDIT!
+
+"$schema" = "../../schemas/schema.json"
+
+[[permission]]
+identifier = "allow-join-federation-as-admin"
+description = "Enables the join_federation_as_admin command without any pre-configured scope."
+commands.allow = ["join_federation_as_admin"]
+
+[[permission]]
+identifier = "deny-join-federation-as-admin"
+description = "Denies the join_federation_as_admin command without any pre-configured scope."
+commands.deny = ["join_federation_as_admin"]

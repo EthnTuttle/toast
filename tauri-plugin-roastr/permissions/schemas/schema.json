@@ -323,6 +323,20 @@
           ]
         },
         {
+          "description": "allow-join-federation-as-admin -> Enables the join_federation_as_admin command without any pre-configured scope.",
+          "type": "string",
+          "enum": [
+            "allow-join-federation-as-admin"
+          ]
+        },
+        {
+          "description": "deny-join-federation-as-admin -> Denies the join_federation_as_admin command without any pre-configured scope.",
+          "type": "string",
+          "enum": [
+            "deny-join-federation-as-admin"
+          ]
+        },
+        {
           "description": "allow-ping -> Enables the ping command without any pre-configured scope.",
           "type": "string",
           "enum": [
