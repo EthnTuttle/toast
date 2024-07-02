@@ -1,4 +1,4 @@
-use std::str::FromStr;
+use std::{str::FromStr, sync::Arc};
 
 use fedimint_client::{
     module::init::ClientModuleInitRegistry,
@@ -6,7 +6,8 @@ use fedimint_client::{
     AdminCreds, Client,
 };
 use fedimint_core::{api::InviteCode, config::ClientConfig, module::ApiAuth, PeerId};
-use roastr_client::RoastrClientInit;
+use roastr_client::{RoastrClientInit, RoastrClientModule};
+use roastr_common::EventId;
 use tauri::{command, AppHandle, Runtime, State, Window};
 use tracing::info;
 
@@ -44,7 +45,7 @@ pub(crate) async fn join_federation_as_admin(
             .await
             .expect("Could not open client from db.");
         info!("done joining federation as admin");
-        *state.client.lock().unwrap() = Some(client);
+        *state.client.lock().unwrap() = Some(Arc::new(client));
         Ok("success".to_string())
     } else {
         let config = ClientConfig::download_from_invite_code(&invite_code)
@@ -56,7 +57,7 @@ pub(crate) async fn join_federation_as_admin(
             .expect("Failed to join fedimint");
         // TODO: get config from the fedimint.
         info!("done joining federation as admin");
-        *state.client.lock().unwrap() = Some(client);
+        *state.client.lock().unwrap() = Some(Arc::new(client));
         Ok("success".to_string())
     }
 }
@@ -64,11 +65,30 @@ pub(crate) async fn join_federation_as_admin(
 #[command]
 pub(crate) async fn create_note<R: Runtime>(
     note_text: String,
-    peer_id: String,
-    password: String,
     _app: AppHandle<R>,
     _window: Window<R>,
     state: State<'_, MyState>,
-) -> TauriPluginResult<String> {
-    Ok("success".to_string())
+) -> TauriPluginResult<EventId> {
+        let cloned;
+        {
+            let client = state.client.lock().unwrap();
+            cloned = client.clone();
+        }
+        let roastr = cloned.unwrap();
+        let roastr_mod = roastr.get_first_module::<RoastrClientModule>();
+    let event = roastr_mod.create_note(note_text).await.unwrap();
+    Ok(event)
+}
+
+#[command]
+pub(crate) async fn sign_note(event_id: EventId, state: State<'_, MyState>) -> TauriPluginResult<()> {
+   let cloned;
+   {
+    let client = state.client.lock().unwrap();
+    cloned = client.clone();
+   } 
+   let client = cloned.unwrap();
+   let roastr = client.get_first_module::<RoastrClientModule>();
+   roastr.sign_note(event_id).await.unwrap();
+   Ok(())
 }

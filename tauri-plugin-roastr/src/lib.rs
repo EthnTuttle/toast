@@ -1,5 +1,5 @@
 use directories::ProjectDirs;
-use fedimint_client::ClientHandle;
+use fedimint_client::{ClientHandle, ClientHandleArc};
 use fedimint_core::{
     api::InviteCode, apply, async_trait_maybe_send, config::FederationId, db::Database,
     util::SafeUrl, PeerId,
@@ -10,7 +10,7 @@ use std::{fmt::Debug, sync::Mutex};
 use tauri::{
     generate_handler, plugin::{Builder, TauriPlugin}, Manager, Runtime
 };
-use crate::commands::{create_note, join_federation_as_admin};
+use crate::commands::{create_note, sign_note, join_federation_as_admin};
 
 use core::fmt;
 use std::{path::PathBuf, result};
@@ -35,7 +35,7 @@ use mobile::Roastr;
 struct MyState {
     db: Mutex<Database>,
     // probably need a vec of clients? or a hashmap?
-    client: Mutex<Option<ClientHandle>>,
+    client: Mutex<Option<ClientHandleArc>>,
     our_peer_id: Mutex<Option<PeerId>>,
     password: Mutex<Option<String>>,
 }
@@ -78,7 +78,7 @@ pub fn init<R: Runtime>() -> TauriPlugin<R> {
             });
             Ok(())
         })
-        .invoke_handler(generate_handler![create_note, join_federation_as_admin])
+        .invoke_handler(generate_handler![create_note, sign_note, join_federation_as_admin])
         .build();
         info!("Done init'ing roastr plugin");
         plugin

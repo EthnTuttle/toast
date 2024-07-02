@@ -4,6 +4,8 @@ pub type TauriPluginResult<T> = std::result::Result<T, Error>;
 
 #[derive(Debug, thiserror::Error)]
 pub enum Error {
+  #[error("Unknown")]
+  Unknown,
   #[error(transparent)]
   Io(#[from] std::io::Error),
   #[cfg(mobile)]
