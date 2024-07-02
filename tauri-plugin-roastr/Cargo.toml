@@ -20,6 +20,7 @@ fedimint-logging = { git = "https://github.com/m1sterc001guy/fedimint", rev = "2
 fedimint-rocksdb = { git = "https://github.com/m1sterc001guy/fedimint", rev = "2541b9705aefde724d55683aa46fb6997d312d7e" }
 fs-lock = "0.1.3"
 roastr-client = { path = "../../roastr/roastr-client"}
+roastr-common = { path = "../../roastr/roastr-common"}
 serde = "1.0"
 serde_json = { version = "1.0.114", features = ["preserve_order"] }
 tauri = { version = "2.0.0-beta.18" }

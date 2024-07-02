@@ -5517,6 +5517,7 @@ dependencies = [
  "fedimint-rocksdb",
  "fs-lock",
  "roastr-client",
+ "roastr-common",
  "serde",
  "serde_json",
  "tauri",
