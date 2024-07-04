@@ -1,4 +1,4 @@
-use std::{str::FromStr, sync::Arc};
+use std::{collections::BTreeMap, str::FromStr, sync::Arc};
 
 use fedimint_client::{
     module::init::ClientModuleInitRegistry,
@@ -6,8 +6,8 @@ use fedimint_client::{
     AdminCreds, Client,
 };
 use fedimint_core::{api::InviteCode, config::ClientConfig, module::ApiAuth, PeerId};
-use roastr_client::{RoastrClientInit, RoastrClientModule};
-use roastr_common::EventId;
+use roastr_client::{BroadcastEventResponse, RoastrClientInit, RoastrClientModule};
+use roastr_common::{EventId, SignatureShare};
 use tauri::{command, AppHandle, Runtime, State, Window};
 use tracing::info;
 
@@ -69,26 +69,61 @@ pub(crate) async fn create_note<R: Runtime>(
     _window: Window<R>,
     state: State<'_, MyState>,
 ) -> TauriPluginResult<EventId> {
-        let cloned;
-        {
-            let client = state.client.lock().unwrap();
-            cloned = client.clone();
-        }
-        let roastr = cloned.unwrap();
-        let roastr_mod = roastr.get_first_module::<RoastrClientModule>();
+    let cloned;
+    {
+        let client = state.client.lock().unwrap();
+        cloned = client.clone();
+    }
+    let roastr = cloned.unwrap();
+    let roastr_mod = roastr.get_first_module::<RoastrClientModule>();
     let event = roastr_mod.create_note(note_text).await.unwrap();
     Ok(event)
 }
 
 #[command]
-pub(crate) async fn sign_note(event_id: EventId, state: State<'_, MyState>) -> TauriPluginResult<()> {
-   let cloned;
-   {
-    let client = state.client.lock().unwrap();
-    cloned = client.clone();
-   } 
-   let client = cloned.unwrap();
-   let roastr = client.get_first_module::<RoastrClientModule>();
-   roastr.sign_note(event_id).await.unwrap();
-   Ok(())
+pub(crate) async fn sign_note(
+    event_id: EventId,
+    state: State<'_, MyState>,
+) -> TauriPluginResult<()> {
+    let cloned;
+    {
+        let client = state.client.lock().unwrap();
+        cloned = client.clone();
+    }
+    let client = cloned.unwrap();
+    let roastr = client.get_first_module::<RoastrClientModule>();
+    roastr.sign_note(event_id).await.unwrap();
+    Ok(())
+}
+
+#[command]
+pub(crate) async fn broadcast_note(
+    event_id: EventId,
+    state: State<'_, MyState>,
+) -> TauriPluginResult<BroadcastEventResponse> {
+    let cloned;
+    {
+        let client = state.client.lock().unwrap();
+        cloned = client.clone();
+    }
+    let client = cloned.unwrap();
+    let roastr = client.get_first_module::<RoastrClientModule>();
+    let result = roastr.broadcast_note(event_id).await.unwrap();
+    Ok(result)
+}
+
+#[command]
+pub(crate) async fn get_signing_sessions(
+    event_id: EventId,
+    state: State<'_, MyState>
+) -> TauriPluginResult<BTreeMap<String, BTreeMap<PeerId, SignatureShare>>> {
+    let cloned;
+    {
+        let client = state.client.lock().unwrap();
+        cloned = client.clone();
+    }
+    let client = cloned.unwrap();
+    let roastr = client.get_first_module::<RoastrClientModule>();
+    let result = roastr.get_signing_sessions(event_id).await.unwrap();
+    Ok(result)
 }

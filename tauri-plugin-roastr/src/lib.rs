@@ -1,3 +1,6 @@
+use crate::commands::{
+    broadcast_note, create_note, get_signing_sessions, join_federation_as_admin, sign_note,
+};
 use directories::ProjectDirs;
 use fedimint_client::{ClientHandle, ClientHandleArc};
 use fedimint_core::{
@@ -8,9 +11,10 @@ use serde::Serialize;
 use serde_json::Value;
 use std::{fmt::Debug, sync::Mutex};
 use tauri::{
-    generate_handler, plugin::{Builder, TauriPlugin}, Manager, Runtime
+    generate_handler,
+    plugin::{Builder, TauriPlugin},
+    Manager, Runtime,
 };
-use crate::commands::{create_note, sign_note, join_federation_as_admin};
 
 use core::fmt;
 use std::{path::PathBuf, result};
@@ -68,7 +72,7 @@ pub fn init<R: Runtime>() -> TauriPlugin<R> {
                 .unwrap()
                 .block_on(load_rocks_db())
                 .expect("Failed to load rocks db");
- 
+
             // manage state so it is accessible by the commands
             app.manage(MyState {
                 db: db.into(),
@@ -78,10 +82,16 @@ pub fn init<R: Runtime>() -> TauriPlugin<R> {
             });
             Ok(())
         })
-        .invoke_handler(generate_handler![create_note, sign_note, join_federation_as_admin])
+        .invoke_handler(generate_handler![
+            create_note,
+            sign_note,
+            join_federation_as_admin,
+            broadcast_note,
+            get_signing_sessions
+        ])
         .build();
-        info!("Done init'ing roastr plugin");
-        plugin
+    info!("Done init'ing roastr plugin");
+    plugin
 }
 
 async fn load_rocks_db() -> CliResult<Database> {
@@ -90,9 +100,9 @@ async fn load_rocks_db() -> CliResult<Database> {
     debug!("database path: {:?}", db_path);
     let lock_path = db_path.with_extension("db.lock");
     Ok(LockedBuilder::new(&lock_path)
-    .await
-    .map_err_cli_msg("could not lock database")?
-    .with_db(
+        .await
+        .map_err_cli_msg("could not lock database")?
+        .with_db(
             fedimint_rocksdb::RocksDb::open(db_path).map_err_cli_msg("could not open database")?,
         )
         .into())
@@ -100,9 +110,9 @@ async fn load_rocks_db() -> CliResult<Database> {
 
 fn data_dir() -> CliResult<PathBuf> {
     let dirs = ProjectDirs::from(
-        "org",         /*qualifier*/
-        "Baz Corp",    /*organization*/
-        "toastr", /*application*/
+        "org",      /*qualifier*/
+        "Baz Corp", /*organization*/
+        "toastr",   /*application*/
     )
     .expect("Could not create data dir")
     .data_dir()
