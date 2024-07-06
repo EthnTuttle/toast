@@ -57,6 +57,7 @@ impl<R: Runtime, T: Manager<R>> crate::RoastrExt<R> for T {
 
 /// Initializes the plugin.
 pub fn init<R: Runtime>() -> TauriPlugin<R> {
+    pretty_env_logger::init();
     let plugin = Builder::new("roastr")
         // .invoke_handler(tauri::generate_handler![commands::execute])
         .setup(|app, api| {

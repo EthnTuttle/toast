@@ -1,0 +1,6 @@
+[[set]]
+identifier = "allow-roastr"
+description = "Enables the commands."
+permissions = [
+    "roastr:roastr"
+]

@@ -1,0 +1,10 @@
+[[permission]]
+identifier = "roastr"
+description = """List all the roastr permissions"""
+commands.allow = [
+    "create_note",
+    "sign_note",
+    "join_federation_as_admin",
+    "broadcast_note",
+    "get_signing_sessions"
+]

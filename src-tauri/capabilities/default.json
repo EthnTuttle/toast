@@ -13,6 +13,6 @@
     "menu:default",
     "tray:default",
     "shell:allow-open",
-    "roastr:allow-join-federation-as-admin"
+    "roastr:roastr"
   ]
 }

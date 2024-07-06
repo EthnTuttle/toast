@@ -6,10 +6,10 @@ use fedimint_client::{
     AdminCreds, Client,
 };
 use fedimint_core::{api::InviteCode, config::ClientConfig, module::ApiAuth, PeerId};
+use log::{debug, info};
 use roastr_client::{BroadcastEventResponse, RoastrClientInit, RoastrClientModule};
 use roastr_common::{EventId, SignatureShare};
 use tauri::{command, AppHandle, Runtime, State, Window};
-use tracing::info;
 
 use crate::{error::TauriPluginResult, MyState};
 
@@ -38,16 +38,6 @@ pub(crate) async fn join_federation_as_admin(
         auth: ApiAuth(admin_password),
     };
     client_builder.set_admin_creds(admin_creds);
-    let is_initialized = fedimint_client::Client::is_initialized(&db.clone().into()).await;
-    if is_initialized {
-        let client = client_builder
-            .open(root_secret)
-            .await
-            .expect("Could not open client from db.");
-        info!("done joining federation as admin");
-        *state.client.lock().unwrap() = Some(Arc::new(client));
-        Ok("success".to_string())
-    } else {
         let config = ClientConfig::download_from_invite_code(&invite_code)
             .await
             .expect("Couldn't download config.");
@@ -59,7 +49,6 @@ pub(crate) async fn join_federation_as_admin(
         info!("done joining federation as admin");
         *state.client.lock().unwrap() = Some(Arc::new(client));
         Ok("success".to_string())
-    }
 }
 
 #[command]
@@ -75,6 +64,7 @@ pub(crate) async fn create_note<R: Runtime>(
         cloned = client.clone();
     }
     let roastr = cloned.unwrap();
+
     let roastr_mod = roastr.get_first_module::<RoastrClientModule>();
     let event = roastr_mod.create_note(note_text).await.unwrap();
     Ok(event)
@@ -115,7 +105,7 @@ pub(crate) async fn broadcast_note(
 #[command]
 pub(crate) async fn get_signing_sessions(
     event_id: EventId,
-    state: State<'_, MyState>
+    state: State<'_, MyState>,
 ) -> TauriPluginResult<BTreeMap<String, BTreeMap<PeerId, SignatureShare>>> {
     let cloned;
     {

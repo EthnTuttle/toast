@@ -1,4 +1,0 @@
-[[set]]
-identifier = "allow-join"
-description = "Enables the join command."
-permissions = ["roastr:allow-join-federation-as-admin"]
